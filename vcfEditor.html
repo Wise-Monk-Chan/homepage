@@ -189,7 +189,7 @@ function delDublicates(){
     while(j < vCards.length){
       if(equalContact(vCards[i],vCards[j])){
         console.log("Deleting: "+vCards[j].fn.split(":")[1])
-        if(j=vCards.length -1)
+        if(j == vCards.length - 1)
           vCards.pop()
         else
           vCards[j] = vCards.pop()
