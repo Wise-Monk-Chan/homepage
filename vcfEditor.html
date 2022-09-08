@@ -94,8 +94,12 @@ var vcffile = ""
 for(i in new VCard())
   attributes.push(i)
 function viewNext(){
-  primaryView.vcard = parseInt(primaryView.vcard) + 1
-  vCards[primaryView.vcard].view(primaryView)
+  if(parseInt(primaryView.vcard) < vCards.length - 1){
+    primaryView.vcard = parseInt(primaryView.vcard) + 1
+    vCards[primaryView.vcard].view(primaryView)
+  }else {
+    alert("no further contacts")
+  }
 }
 function mkButton(place,txt,fun){
   let el = document.createElement("button")
