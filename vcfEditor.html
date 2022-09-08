@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<!-- Copyright © 2022 Jaroslaw Zolkiewski -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="copyright" content="Jaroslaw Zolkiewski">
+  <title>VCF Editor</title>
+  <style>
+    body{
+      text-align: center;
+      background-image: linear-gradient(10deg,#404040,black);
+    }
+    div{
+      position: absolute;
+      border:20px ;
+      border-radius: 20px;
+      padding:0;
+      margin:0;
+      color: #050505;
+    }
+    .dragover{
+      background-image: radial-gradient(black,beige);
+    }
+    .btn:hover{
+      background-image: linear-gradient(45deg,lightgray,beige,darkgray,gold,silver);
+    }
+    .btn{
+      border:1px;
+      border-style:solid;
+      border-color: darkgray;
+    }
+    input{
+      border-radius:5px;
+    }
+  </style>
+</head>
+<body>
+  <div style="width:90%;height:40%;top:0%;left:4%;background-image: radial-gradient(white,lightgray,beige);">
+    <div id="fileDrop" style="width:15%;height: 50%;top:0px;left:0px;background-color:lightgray;border:10px;border-style:dotted;border-color: black;">
+      <h2>drag & drop <br> vcf-files <br> here</h2>
+    </div>
+    <div id="primaryView" style="width:30%;height:90%;top:0px;left:19%;background-color:gray;background-image:linear-gradient(-20deg,lightgray,white,beige);overflow: scroll;"></div>
+    <div id="secondaryView" style="width:30%;height:90%;top:0px;left:52%;background-image:linear-gradient(45deg,darkgray,lightgray,silver);overflow: scroll;"></div>
+    <a id="exportB" download="contacts.vcf">
+		<div class="btn" style="width:10%;height:20%;top:4%;left:85%;background-color:#fafafa"><h3>export vcf-file</h3></div>
+    </a>
+    <div id="sorter" class="btn" style="top:24%;left:85%;width:10%;height:20%;background-color:#fefefe;color:#111111;"><h4>Sort A-Z</h4></div>
+    <div id="delD" class="btn" style="width:10%;height: 20%;top:44%;left:85%;background-color:#ececec;"><h4>delete dublicates</h4></div>
+    <div id="addN" class="btn" style="width:10%;height: 20%;top:64%;left:85%;background-color:#e2e2e2;"><h4>add new</h4></div>
+    <div id="ccount" style="width:10%;height: 20%;top:70%;left:2%;background-color:#a0a0a0;font-size:1.2em;"></div>
+
+  </div>
+  <div id="cButtonsView" style="width:100%;height:60%;top:40%;left:0%;background-color:#bbbbbb;background-image:linear-gradient(-10deg,black,#101010,black,#303030,black,#121212,#202020);overflow-y: scroll;"></div>
+</body>
+<script type="text/javascript">
+class VCard{
+	fn;version;adr;anniversary;bday;caladruri;caluri;categories;clientpidmap;email;fburl;gender;geo;impp;key;kind;
+  lang;logo;member;n;nickname;note;org;photo;prodid;related;rev;role;sound;source;tel;title;tz;uid;url;xml;
+  write(){
+    let output = "begin:vcard\n"
+    for(i in this)
+      if(this[i])
+        output += this[i] + "\n"
+    return output + "end:vcard\n"
+  }
+  view(viewport, msg){
+    viewport.innerHTML=""
+    let el = document.createElement("text")
+    if(msg)
+      el.innerText=msg + " : "
+    el.innerText+="Contact "+viewport.vcard+":\n"
+    viewport.appendChild(el)
+    mkButton(viewport,"delete",del)
+    mkButton(viewport,"apply",apply)
+    mkButton(viewport,"new entry",newEntry)
+    if(viewport == primaryView){
+      mkButton(viewport,"find similar",findSimilar)
+      mkButton(viewport,"view next",viewNext)
+    }
+    viewport.appendChild(document.createElement("br"))
+    for(i in this){
+      if(this[i]){
+        el=document.createElement("textarea")
+        el.value=this[i]
+        el.cols=32
+        el.rows=2
+        viewport.appendChild(el)
+      }
+    }
+  }
+}
+var vcf = [],vCards = [],attributes = []
+var vcffile = ""
+for(i in new VCard())
+  attributes.push(i)
+function viewNext(){
+  primaryView.vcard = parseInt(primaryView.vcard) + 1
+  vCards[primaryView.vcard].view(primaryView)
+}
+function mkButton(place,txt,fun){
+  let el = document.createElement("button")
+  el.innerText = txt
+  el.onclick = fun
+  place.appendChild(el)
+}
+function newEntry(){
+  let el = document.createElement("textarea")
+  el.cols=32
+  el.rows=2
+  this.parentElement.appendChild(el)
+}
+function apply(){
+  let wrongOption = 0
+  this.parentElement.childNodes.forEach(no => {if(no.type=="textarea") wrongOption++})
+  this.parentElement.childNodes.forEach(en =>{
+    if(en.type=="textarea")
+      for(i of attributes)
+        if(en.value.startsWith(i+":")){
+          vCards[this.parentElement.vcard][i]=en.value
+          wrongOption--
+        }
+  })
+  updateC()
+  if(wrongOption)
+    alert("error:\n all fields must start with a vCard property followed by a colon ':'\n available properties are: "+attributes)
+}
+
+function del(){
+  if(this.parentElement.vcard == vCards.length -1)
+    vCards.pop()
+  else
+    vCards[this.parentElement.vcard] = vCards.pop()
+  this.parentElement.innerHTML=""
+  updateC()
+}
+function findSimilar(){
+  secondaryView.vcard = -1
+  for(i in vCards)
+    if(i != primaryView.vcard){
+      for(a of attributes.filter(att => att != "version"))
+        if(vCards[i][a] && vCards[i][a] == vCards[primaryView.vcard][a]){
+          secondaryView.vcard = i
+          vCards[i].view(secondaryView, "same "+a)
+          break
+        }
+    }
+    if(secondaryView.vcard == -1)
+      secondaryView.innerHTML="<h3>No similar found</h3>"
+}
+function comesAfter(a,b){
+  for(i in a)
+    if(b[i]){
+      if(a[i] > b[i])
+        return true
+      if(a[i] < b[i])
+        return false
+    }else {
+      return true
+    }
+  return false
+}
+function sort(){
+  let len = vCards.length-1
+  for(let j=0;j<len;j++)
+    for(let i=0;i<len;i++){
+      if(comesAfter(vCards[i].fn.toLowerCase(),vCards[i+1].fn.toLowerCase())){
+        let swap = vCards[i]
+        vCards[i] = vCards[i+1]
+        vCards[i+1] = swap
+      }
+    }
+  updateC()
+}
+function equalContact(con1,con2){
+  let equal = true
+  for(i in con1)
+    if(con1[i] != con2[i])
+      equal = false
+  return equal
+}
+function delDublicates(){
+  let i = 0
+  while(i < vCards.length-1){
+    let j = i+1
+    while(j < vCards.length){
+      if(equalContact(vCards[i],vCards[j])){
+        console.log("Deleting: "+vCards[j].fn.split(":")[1])
+        if(j=vCards.length -1)
+          vCards.pop()
+        else
+          vCards[j] = vCards.pop()
+      }
+      j++
+    }
+    i++
+  }
+  updateC()
+}
+function updateC(){
+  cButtonsView.innerHTML = ""
+  for(i in vCards){
+    let el = document.createElement("input")
+    el.vcard = i
+    el.value = i+" : "+vCards[i].fn.split(":")[1]
+    el.type="button"
+    el.addEventListener("contextmenu", function(e){
+      e.preventDefault()
+      vCards[this.vcard].view(secondaryView)
+      secondaryView.vcard = this.vcard
+    })
+    el.addEventListener("click",function(){
+      vCards[this.vcard].view(primaryView)
+      primaryView.vcard = this.vcard
+    })
+
+    cButtonsView.appendChild(el)
+  }
+  ccount.innerHTML = "You have " + vCards.length + " contacts."
+  vcffile=""
+  for(let i in vCards){
+    vcffile+=vCards[i].write()
+  }
+  document.getElementById("exportB").href = window.URL.createObjectURL(new Blob([vcffile], {type: "text/plain"}))
+}
+
+function listOf(type){
+  let list = []
+  vCards.forEach((en, i) => {
+    list.push(en[type])
+  })
+  return list
+}
+function addNew(){
+  vCards.push(new VCard())
+  primaryView.vcard = vCards.length - 1
+  vCards[primaryView.vcard].fn = "fn:new Contact"
+  vCards[primaryView.vcard].view(primaryView)
+  updateC()
+}
+function drop(e){
+  let dat=e.dataTransfer.files.item(0)
+  let re = new FileReader()
+  re.onload = function(){
+    vcffile = re.result
+    vcf = vcffile.replaceAll(":VCARD",":vcard").replaceAll("\r","\n").split("\n").filter( en => en.length > 0)
+    for(i=0;i<vcf.length;i++){
+      let s = vcf[i].split(":")
+      vcf[i]=s[0].toLowerCase()+":"+s[1]
+    }
+    vcf.forEach(en => {
+      if(en.startsWith("begin"))
+        vCards.push(new VCard())
+      else
+        for(i of attributes){
+          if(en.startsWith(i)){
+            if(vCards[vCards.length-1][i])
+              vCards[vCards.length-1][i] += "\n" + en
+            else
+              vCards[vCards.length-1][i] = en
+          }
+        }
+    })
+    vCards.forEach(en => {
+      if(!en.fn || en.fn=="fn:")
+        en.fn = "fn:000_unnamed"
+      if(en.tel)
+		    en.tel = en.tel.replaceAll(" ","").replaceAll("-","")
+    });
+    updateC()
+  }
+  re.readAsText(dat)
+}
+["dragover","drop"].forEach(ev => fileDrop.addEventListener(ev,e => e.preventDefault()))
+fileDrop.addEventListener("dragover",function(){
+  fileDrop.classList.add("dragover")
+  setTimeout(function(){fileDrop.classList.remove("dragover")},1000)
+})
+fileDrop.addEventListener("drop",drop)
+sorter.addEventListener("click",sort)
+delD.addEventListener("click",delDublicates)
+addN.addEventListener("click",addNew)
+</script>
+</html>
